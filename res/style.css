@@ -1,0 +1,120 @@
+:root {
+    /* 🌌 backgrounds */
+    --background: #150e10;
+    --background-surface: #272739;
+    --background-elevated: #393849;
+    --background-input: #3b4152;
+
+    /* ✍️ text */
+    --foreground: #9DB0B4;
+    --foreground-muted: #4f5a64;
+    --foreground-disabled: #5C6B7A;
+
+    /* 🎯 brand */
+    --primary: #4DA3FF;
+    --primary-hover: #6BB4FF;
+    --primary-active: #2F8CFF;
+
+    /* 🌿 accents */
+    --accent: #7CFFCB;
+    --danger: #FF4D6D;
+    --warning: #FFCC66;
+    --success: #3DDB93;
+
+    /* 🌫 effects */
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --glow-primary: 0 0 12px rgba(77, 163, 255, 0.35);
+}
+
+
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    overflow: hidden;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+header {
+    width: 100%;
+    flow: horizontal-wrap;
+    min-height: 2em;
+    border-bottom: 1px solid var(--background-surface);
+}
+
+button {
+    display: block;
+    border: 1px solid var(--background-surface);
+    background: var(--background-input);
+    color: var(--foreground);
+    border-radius: 0;
+}
+
+input[type="text"] {
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    color: var(--foreground);
+    padding: 0;
+    text-selection: var(--foreground);
+    text-selection-caret-color: var(--foreground);
+    text-selection-background-color: var(--foreground-disabled);
+}
+
+button:hover {
+    background: var(--background-elevated);
+}
+
+header button {
+    height: 100%;
+}
+
+.tree {
+    padding: 10px;
+    font-family: system-ui;
+    color: var(--text);
+}
+
+.tree-node {
+    margin-left: 12px;
+}
+
+.tree-row {
+    flow: horizontal;
+    border-spacing: 6px;
+    padding: 4px 6px;
+    cursor: pointer;
+    line-height: 1;
+    height: *;
+}
+
+.tree-row > * {
+    vertical-align: middle;
+}
+
+
+.tree-row:hover {
+    background: var(--foreground-muted);
+}
+
+.arrow {
+    width: 12px;
+    display: inline-block;
+    color: var(--text-muted);
+}
+
+.tree-children {
+    margin-left: 14px;
+    border-left: 1px solid var(--background-surface);
+    padding-left: 8px;
+}
+
+.window {
+    height: *;
+    overflow-y: scroll;
+}
