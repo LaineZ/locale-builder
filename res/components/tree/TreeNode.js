@@ -1,48 +1,46 @@
 import { toggle, isOpen } from "../../state/treeState.js";
-import {addNewKey, removeKey} from "../../state/locale.js";
+import { addNewKey, addNewSection, removeKey, updateValue, updateKey } from "../../state/locale.js";
+import { Tree } from "./Tree.js";
 
-export function TreeNode({ node, name, path = "root" }) {
-    const isObject = node && typeof node === "object";
-    const currentPath = path + "." + name;
+export function TreeNode({ node }) {
+  const isSection = node.children && node.children.length >= 0;
+  const currentId = node.id;
 
-    return (
-        <div class="tree-node">
-            <div class="tree-row" onclick={() => isObject && toggle(currentPath)}>
+  return (
+    <div class="tree-node">
+      <div class="tree-row">
 
-                {isObject && (
-                    <span class="arrow">
-                        {isOpen(currentPath) ? "▼" : "▶"}
-                    </span>
-                )}
-                <input
-                    type="text"
-                    value={name}
-                    oninput={(e) => name = e.target.value}
-                />
+        {isSection && (
+          <span
+            class="arrow"
+            onclick={() => toggle(currentId)}
+          >
+            {isOpen(currentId) ? "▼" : "▶"}
+          </span>
+        )}
 
-                {!isObject && (
-                    <input
-                        type="text"
-                        value={node}
-                        oninput={(e) => node = e.target.value}
-                    />
-                )}
-                <button onclick={() => removeKey(currentPath)}>-</button>
-            </div>
+        <input
+          type="text"
+          value={node.key}
+          oninput={(e) => updateKey(currentId, e.target.value)}
+        />
 
-            {isObject && isOpen(currentPath) && (
-                <div class="tree-children">
-                    {Object.entries(node).map(([k, v]) => (
-                        <TreeNode
-                            node={v}
-                            name={k}
-                            path={currentPath}
-                        />
-                    ))}
-            
-                    <button onclick={() => addNewKey(currentPath)}>+</button>
-                </div>
-            )}
+        {!isSection ? (
+          <input
+            type="text"
+            value={node.value ?? ""}
+            oninput={(e) => updateValue(currentId, e.target.value)}
+          />
+        ) : null}
+
+        <button onclick={() => removeKey(currentId)}>−</button>
+      </div>
+
+      {isSection && isOpen(currentId) && (
+        <div class="tree-children">
+          <Tree data={node.children} parentId={currentId} />
         </div>
-    );
+      )}
+    </div>
+  );
 }

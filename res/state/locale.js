@@ -10,23 +10,58 @@ export const model = signal({
 });
 
 let currentDirectory = "";
+let idCounter = 0;
 
-function syncKeysStrict(primary, target) {
-  const result = {};
+function toTree(obj) {
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+    return Object.entries(obj).map(([k, v]) => ({
+      id: "node_" + idCounter++,
+      key: k,
+      value: typeof v === "object" ? null : v,
+      children: typeof v === "object" ? toTree(v) : null,
+      expanded: false
+    }));
+  }
+  return [];
+}
 
-  for (const key in primary) {
-    const pVal = primary[key];
-    const tVal = target?.[key];
+function fromTree(nodes) {
+  const obj = {};
 
-    if (
-      typeof pVal === "object" &&
-      pVal !== null &&
-      !Array.isArray(pVal)
-    ) {
-      result[key] = syncKeysStrict(pVal, tVal || {});
+  for (const node of nodes) {
+    if (node.children) {
+      obj[node.key] = fromTree(node.children);
     } else {
-      result[key] = key in target ? tVal : "";
+      obj[node.key] = node.value;
     }
+  }
+
+  return obj;
+}
+
+
+function syncKeysStrict(primaryNodes, targetNodes) {
+  const result = [];
+
+  for (const pNode of primaryNodes) {
+    const tNode = targetNodes.find(n => n.key === pNode.key);
+
+    const synced = {
+      id: pNode.id,
+      key: pNode.key,
+      value: (tNode?.value ?? pNode.value) ?? "",
+      expanded: tNode?.expanded ?? false,
+      children: null
+    };
+
+    if (pNode.children) {
+      synced.children = syncKeysStrict(
+        pNode.children,
+        tNode?.children ?? []
+      );
+    }
+
+    result.push(synced);
   }
 
   return result;
@@ -50,6 +85,8 @@ export function openMasterLocaleFile() {
       ...files.filter(f => f !== primaryFileName)
     ];
 
+    model.value.files = [];
+    model.value.selectedLocaleFileIndex = 0;
 
     for (const file of orderedFiles) {
       readLocaleFile(file);
@@ -65,31 +102,35 @@ export function openMasterLocaleFile() {
 }
 
 export function syncAll() {
-  for (let i = 1; i < model.value.files.length; i++) {
-    model.value.files[i].tree = syncKeysStrict(
-      model.value.files[0].tree,
-      model.value.files[i].tree
-    );
+  const files = model.value.files;
+  const primary = files[0];
+
+  for (let i = 1; i < files.length; i++) {
+    files[i].tree = syncKeysStrict(primary.tree, files[i].tree ?? []);
   }
-  model.send(model.value);
+
+  model.value = { ...model.value };
   cleanupExpanded();
 }
 
 export function saveAll() {
   for (const locale of model.value.files) {
     const handle = sys.fs.sync.open(currentDirectory + "/" + locale.fileName, "w");
-    console.log(handle);
-    handle.writeSync(sctr.encode(JSON.stringify(locale.tree, null, 4), "utf-8"));
+    const json = fromTree(locale.tree);
+    handle.writeSync(sctr.encode(JSON.stringify(json, null, 4), "utf-8"));
   }
 }
 
 function readLocaleFile(fileName) {
   const path = currentDirectory + "/" + fileName;
-  console.log(path);
   let data = sys.fs.sync.readfile(path);
-
   let text = sctr.decode(data, "utf-8");
-  model.value.files.push({ fileName: fileName, tree: JSON.parse(text) });
+
+  model.value.files.push({
+    fileName,
+    tree: toTree(JSON.parse(text))
+  });
+
   model.send(model.value);
 }
 
@@ -97,68 +138,122 @@ export function changeLocaleFile(index) {
   model.value.selectedLocaleFileIndex = index;
   model.send(model.value);
   cleanupExpanded();
-  console.log("locale change!", model.value.selectedLocaleFileIndex);
 }
 
-function getNodeByPath(tree, path) {
-  const parts = 
-    path.split(".")
-    .filter(Boolean)
-    .filter(p => p !== "root");
+function findById(nodes, id) {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children) {
+      const res = findById(n.children, id);
+      if (res) return res;
+    }
+  }
+  return null;
+}
 
-  let current = tree;
+export function updateValue(id, value) {
+  const file = model.value.files[model.value.selectedLocaleFileIndex];
+  const node = findById(file.tree, id);
 
-  for (const p of parts) {
-    if (!current[p]) return null;
-    current = current[p];
+  if (!node) return;
+
+  node.value = value;
+
+  model.send(model.value);
+}
+
+export function updateKey(id, newKey) {
+  const file = model.value.files[model.value.selectedLocaleFileIndex];
+
+  function findParent(nodes, id) {
+    for (const n of nodes) {
+      if (n.children?.some(c => c.id === id)) return n;
+      if (n.children) {
+        const res = findParent(n.children, id);
+        if (res) return res;
+      }
+    }
+    return null;
   }
 
-  return current;
+  const node = findById(file.tree, id);
+  const parent = findParent(file.tree, id);
+
+  if (!node || !parent) return;
+
+  node.key = newKey;
+
+  model.send(model.value);
 }
 
-export function removeKey(path) {
-  if (path === "root") return;
-  const parts = path
-    .split(".")
-    .filter(Boolean)
-    .filter(p => p !== "root");
 
-  const keyToDelete = parts.pop();
+export function removeKey(id) {
+  const file = model.value.files[model.value.selectedLocaleFileIndex];
 
-  let parent = model.value.files[model.value.selectedLocaleFileIndex].tree;
+  function remove(nodes, id) {
+    const idx = nodes.findIndex(n => n.id === id);
+    if (idx !== -1) {
+      nodes.splice(idx, 1);
+      return true;
+    }
 
-  for (const p of parts) {
-    if (!parent[p]) return;
-    parent = parent[p];
+    for (const n of nodes) {
+      if (n.children && remove(n.children, id)) return true;
+    }
+
+    return false;
   }
 
-  delete parent[keyToDelete];
+  remove(file.tree, id);
 
-  model.value = { ...model.value };
+  model.send(model.value);
 }
 
-export function addNewKey(path = "root") {
-  const target = getNodeByPath(model.value.files[model.value.selectedLocaleFileIndex].tree, path) ??
-    model.value.files[model.value.selectedLocaleFileIndex].tree;
+export function addNewKey(parentId = null) {
+  const file = model.value.files[model.value.selectedLocaleFileIndex];
 
-  const key = "key" + Object.keys(target).length;
-
-  target[key] = "value";
-
-  model.value = {
-    ...model.value
+  const newNode = {
+    id: "n_" + idCounter++,
+    key: "key",
+    value: "value",
+    children: null,
+    expanded: false
   };
+
+  if (!parentId) {
+    file.tree.push(newNode);
+  } else {
+    const parent = findById(file.tree, parentId);
+    if (!parent.children) parent.children = [];
+    parent.children.push(newNode);
+  }
+
+  model.send(model.value);
 }
 
-export function addNewSection(path = "root") {
-  const target = path === "root"
-    ? model.value.files[model.value.selectedLocaleFileIndex].tree
-    : getNodeByPath(model.value.files[model.value.selectedLocaleFileIndex].tree, path);
+export function addNewSection(parentId = null) {
+  const file = model.value.files[model.value.selectedLocaleFileIndex];
 
-  const key = "section" + Object.keys(target).length;
-
-  target[key] = {};
-  model.value = {
-    ...model.value
+  const newSection = {
+    id: "node_" + idCounter++,
+    key: "section",
+    value: null,
+    children: [],
+    expanded: true
   };
+
+  if (!parentId) {
+    file.tree.push(newSection);
+  } else {
+    const parent = findById(file.tree, parentId);
+
+    if (!parent) return;
+
+    if (!parent.children) parent.children = [];
+    parent.children.push(newSection);
+
+    parent.expanded = true;
+  }
+
+  model.send(model.value);
 }

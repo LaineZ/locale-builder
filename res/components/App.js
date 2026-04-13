@@ -24,7 +24,7 @@ export function App() {
         </header>
         <div class="window">
             <aside>
-                <Tree key={state.selectedLocaleFileIndex} data={state.files[state.selectedLocaleFileIndex]?.tree ?? {}} />
+                <Tree key={state.selectedLocaleFileIndex} data={state.files[state.selectedLocaleFileIndex]?.tree ?? []} />
             </aside>
             <main>
                 

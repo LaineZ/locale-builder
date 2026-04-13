@@ -2,14 +2,17 @@ import { addNewKey, addNewSection } from "../../state/locale";
 import { TreeNode } from "./TreeNode";
 
 export function Tree(props) {
-  const { data } = props;
+  const { data, parentId = null } = props;
 
   return (
     <div class="tree">
-      {Object.entries(data).map(([key, value]) => (
-        <TreeNode node={value} name={key} />
+      {Array.isArray(data) && data.map(node => (
+        <TreeNode node={node} />
       ))}
-      <button onclick={() => addNewKey()}>+</button>
+
+      <button onclick={() => addNewKey(parentId)}>
+        +
+      </button>
     </div>
   );
 }
