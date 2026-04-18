@@ -3,11 +3,14 @@ import {cleanupExpanded} from "./treeState";
 const { signal } = Reactor;
 import * as sys from "@sys";
 import * as sctr from "@sciter";
+import { Translator } from "../core/translator";
 
 export const model = signal({
   selectedLocaleFileIndex: 0,
   files: []
 });
+
+const translator = new Translator();
 
 let currentDirectory = "";
 let idCounter = 0;
@@ -65,6 +68,16 @@ function syncKeysStrict(primaryNodes, targetNodes) {
   }
 
   return result;
+}
+
+export async function translate(id, text) {
+  const modelValue = model.value;
+  const from = modelValue.files[0].fileName.replace(".json", "");
+  const to = modelValue.files[modelValue.selectedLocaleFileIndex].fileName.replace(".json", "");
+  const response = await translator.translate(text, from, to);
+  if (response) {
+    updateValue(id, response);
+  }
 }
 
 export function openMasterLocaleFile() {

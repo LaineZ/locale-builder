@@ -33,6 +33,17 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 
 # ---- PLATFORM ----
 if(WIN32)
+    add_custom_target(generate_archive
+        COMMAND ${SCITER_DIR}/bin/windows/packfolder.exe
+            ${CMAKE_SOURCE_DIR}/res
+            ${CMAKE_SOURCE_DIR}/src/archive.h
+            -v resources
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Packing resources to archive.h"
+    )
+
+    add_dependencies(locale_builder generate_archive)
+
     target_link_libraries(locale_builder user32 gdi32)
 
     add_custom_command(TARGET locale_builder POST_BUILD

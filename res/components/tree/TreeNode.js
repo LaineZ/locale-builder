@@ -1,5 +1,5 @@
 import { toggle, isOpen } from "../../state/treeState.js";
-import { addNewKey, addNewSection, removeKey, updateValue, updateKey } from "../../state/locale.js";
+import {addNewKey, addNewSection, removeKey, updateValue, updateKey, translate} from "../../state/locale.js";
 import { Tree } from "./Tree.js";
 
 export function TreeNode({ node }) {
@@ -34,6 +34,7 @@ export function TreeNode({ node }) {
         ) : null}
 
         <button onclick={() => removeKey(currentId)}>−</button>
+        <button onclick={() => translate(currentId, node.value)}>T</button>
       </div>
 
       {isSection && isOpen(currentId) && (

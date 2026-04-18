@@ -1,10 +1,13 @@
 #include "sciter-x-api.h"
 #include "sciter-x-def.h"
+#include "sciter-x-host-callback.h"
 #include "sciter-x-primitives.h"
 #include "sciter-x.h"
 #include "sciter-x-window.hpp"
 #include <cstddef>
+#include <cstdio>
 #include <functional>
+#include "archive.h"
 
 class MainWindow : public sciter::window {
 public:
@@ -21,6 +24,6 @@ int uimain(std::function<int()> run) {
       ALLOW_EVAL |
       ALLOW_SYSINFO);
     
-    new MainWindow();
+    new MainWindow();   
     return run();
 }
