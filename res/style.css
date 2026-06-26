@@ -108,6 +108,10 @@ header button {
     color: var(--text-muted);
 }
 
+.key-input--readonly {
+    color: var(--foreground-muted);
+}
+
 .tree-children {
     margin-left: 14px;
     border-left: 1px solid var(--background-surface);

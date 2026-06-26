@@ -16,14 +16,27 @@ let currentDirectory = "";
 let idCounter = 0;
 
 function toTree(obj) {
-  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
-    return Object.entries(obj).map(([k, v]) => ({
-      id: "node_" + idCounter++,
-      key: k,
-      value: typeof v === "object" ? null : v,
-      children: typeof v === "object" ? toTree(v) : null,
-      expanded: false
-    }));
+  if (obj && typeof obj === "object") {
+    if (Array.isArray(obj)) {
+      return obj.map((item, index) => ({
+        id: "node_" + idCounter++,
+        key: String(index),
+        value: typeof item === "object" ? null : item,
+        children: typeof item === "object" ? toTree(item) : null,
+        expanded: false
+      }));
+    }
+    return Object.entries(obj).map(([k, v]) => {
+      const isArr = Array.isArray(v);
+      return {
+        id: "node_" + idCounter++,
+        key: k,
+        value: isArr ? null : (typeof v === "object" ? null : v),
+        children: isArr ? toTree(v) : (typeof v === "object" ? toTree(v) : null),
+        expanded: false,
+        ...(isArr ? {isArray: true} : {})
+      };
+    });
   }
   return [];
 }
@@ -33,7 +46,7 @@ function fromTree(nodes) {
 
   for (const node of nodes) {
     if (node.children) {
-      obj[node.key] = fromTree(node.children);
+      obj[node.key] = node.isArray ? fromArray(node.children) : fromTree(node.children);
     } else {
       obj[node.key] = node.value;
     }
@@ -42,25 +55,37 @@ function fromTree(nodes) {
   return obj;
 }
 
+function fromArray(nodes) {
+  return nodes.map(node => {
+    if (node.children) {
+      return node.isArray ? fromArray(node.children) : fromTree(node.children);
+    }
+    return node.value;
+  });
+}
 
-function syncKeysStrict(primaryNodes, targetNodes) {
+
+function syncKeysStrict(primaryNodes, targetNodes, isArray = false) {
   const result = [];
 
-  for (const pNode of primaryNodes) {
-    const tNode = targetNodes.find(n => n.key === pNode.key);
+  for (let i = 0; i < primaryNodes.length; i++) {
+    const pNode = primaryNodes[i];
+    const tNode = isArray ? targetNodes[i] : targetNodes.find(n => n.key === pNode.key);
 
     const synced = {
       id: pNode.id,
-      key: pNode.key,
+      key: isArray ? String(i) : pNode.key,
       value: (tNode?.value ?? pNode.value) ?? "",
       expanded: tNode?.expanded ?? false,
-      children: null
+      children: null,
+      isArray: pNode.isArray
     };
 
     if (pNode.children) {
       synced.children = syncKeysStrict(
         pNode.children,
-        tNode?.children ?? []
+        tNode?.children ?? [],
+        pNode.isArray
       );
     }
 
@@ -193,6 +218,7 @@ export function updateKey(id, newKey) {
   const parent = findParent(file.tree, id);
 
   if (!node || !parent) return;
+  if (parent.isArray) return;
 
   node.key = newKey;
 
@@ -200,34 +226,40 @@ export function updateKey(id, newKey) {
 }
 
 
+
 export function removeKey(id) {
   const file = model.value.files[model.value.selectedLocaleFileIndex];
 
-  function remove(nodes, id) {
+  function remove(nodes, parent) {
     const idx = nodes.findIndex(n => n.id === id);
     if (idx !== -1) {
       nodes.splice(idx, 1);
+      if (parent?.isArray) {
+        nodes.forEach((n, i) => { n.key = String(i); });
+      }
       return true;
     }
 
     for (const n of nodes) {
-      if (n.children && remove(n.children, id)) return true;
+      if (n.children && remove(n.children, n)) return true;
     }
 
     return false;
   }
 
-  remove(file.tree, id);
+  remove(file.tree, null);
 
   model.send(model.value);
 }
 
 export function addNewKey(parentId = null) {
   const file = model.value.files[model.value.selectedLocaleFileIndex];
+  const parent = parentId ? findById(file.tree, parentId) : null;
+  const isArray = parent?.isArray;
 
   const newNode = {
     id: "n_" + idCounter++,
-    key: "key",
+    key: isArray ? String(parent.children?.length ?? 0) : "key",
     value: "value",
     children: null,
     expanded: false
@@ -236,9 +268,10 @@ export function addNewKey(parentId = null) {
   if (!parentId) {
     file.tree.push(newNode);
   } else {
-    const parent = findById(file.tree, parentId);
+    if (!parent) return;
     if (!parent.children) parent.children = [];
     parent.children.push(newNode);
+    if (isArray) parent.expanded = true;
   }
 
   model.send(model.value);
@@ -246,10 +279,12 @@ export function addNewKey(parentId = null) {
 
 export function addNewSection(parentId = null) {
   const file = model.value.files[model.value.selectedLocaleFileIndex];
+  const parent = parentId ? findById(file.tree, parentId) : null;
+  const isArray = parent?.isArray;
 
   const newSection = {
     id: "node_" + idCounter++,
-    key: "section",
+    key: isArray ? String(parent.children?.length ?? 0) : "section",
     value: null,
     children: [],
     expanded: true
@@ -258,8 +293,6 @@ export function addNewSection(parentId = null) {
   if (!parentId) {
     file.tree.push(newSection);
   } else {
-    const parent = findById(file.tree, parentId);
-
     if (!parent) return;
 
     if (!parent.children) parent.children = [];
